@@ -1,6 +1,7 @@
 import math
 import cv2
 import numpy as np
+import pyrealsense2 as rs
 
 def detect_steering_angle(frame):
     # 중앙에 가로로 긴 직사각형 영역(사각 박스)을 생성합니다.
@@ -19,8 +20,8 @@ def detect_steering_angle(frame):
     gray = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
 
     # 캐니 엣지 검출
-    # edges = cv2.Canny(gray, 50, 150)
-    edges = cv2.Canny(gray, 400, 400)
+    edges = cv2.Canny(gray, 50, 150)
+    # edges = cv2.Canny(gray+, 400, 400)
 
     cv2.imshow('edges', edges)
 
@@ -71,53 +72,92 @@ def detect_steering_angle(frame):
 
     return angle_degrees
 
+# if __name__ == "__main__":
+#     video_path = "videos.mkv"  # 분석할 비디오 파일 경로를 여기에 입력하세요.
+#     cap = cv2.VideoCapture(0)
+#
+#     while True:
+#         ret, frame = cap.read()
+#         if not ret:
+#             break
+#
+#         angle = detect_steering_angle(frame)
+#
+#         if angle is not None:
+#             text = f"Steering Angle: {math.trunc(angle)} degrees"
+#             org = (50, 100)
+#             font = cv2.FONT_HERSHEY_SIMPLEX
+#             cv2.putText(frame, text, org, font, 1, (255, 0, 0), 2)
+#
+#             height, width, _ = frame.shape
+#
+#             # 세로 선 그리기
+#             line_color = (0, 255, 0)  # 초록색 (BGR 순서)
+#             line_thickness = 2  # 선 두께
+#             start_point = (math.trunc(width/2)+math.trunc(-angle), math.trunc(height/2)+100)  # 선의 시작점 (x, y)
+#             end_point = (math.trunc(width/2)+math.trunc(-angle), math.trunc(height/2)-100)  # 선의 끝점 (x, y)
+#             cv2.line(frame, start_point, end_point, line_color, line_thickness)
+#             # 가로 선 그리기
+#             line_color = (0, 255, 0)  # 초록색 (BGR 순서)
+#             line_thickness = 2  # 선 두께
+#             start_point = (math.trunc(width / 2), math.trunc(height / 2))  # 선의 시작점 (x, y)
+#             end_point = (math.trunc(width / 2) + math.trunc(-angle), math.trunc(height / 2))  # 선의 끝점 (x, y)
+#             cv2.line(frame, start_point, end_point, line_color, line_thickness)
+#             # 세로 선 그리기
+#             line_color = (0, 255, 255)  # 초록색 (BGR 순서)
+#             line_thickness = 2  # 선 두께
+#             start_point = (math.trunc(width / 2), math.trunc(height))  # 선의 시작점 (x, y)
+#             end_point = (math.trunc(width / 2), 0)  # 선의 끝점 (x, y)
+#             cv2.line(frame, start_point, end_point, line_color, line_thickness)
+#
+#         # 화면에 출력
+#         cv2.imshow('Steering Angle Detection', frame)
+#
+#         # 'q' 키를 누를 때까지 비디오를 처리하며, 'q' 키를 누르면 루프 종료
+#         if cv2.waitKey(1) & 0xFF == ord('q'):
+#             break
+#
+#     # 비디오 캡처 객체 해제
+#     cap.release()
+#
+#     # OpenCV 창 닫기
+#     cv2.destroyAllWindows()
+
 if __name__ == "__main__":
-    video_path = "videos.mkv"  # 분석할 비디오 파일 경로를 여기에 입력하세요.
-    cap = cv2.VideoCapture(1)
+    # Configure the RealSense pipeline
+    pipeline = rs.pipeline()
+    config = rs.config()
+    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)  # You can adjust the resolution and FPS
+
+    # Start the pipeline
+    pipeline.start(config)
 
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+        frames = pipeline.wait_for_frames()
+        frame = frames.get_color_frame()
+        frame_data = np.asanyarray(frame.get_data())
 
-        angle = detect_steering_angle(frame)
+        angle = detect_steering_angle(frame_data)
 
         if angle is not None:
             text = f"Steering Angle: {math.trunc(angle)} degrees"
             org = (50, 100)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(frame, text, org, font, 1, (255, 0, 0), 2)
+            cv2.putText(frame_data, text, org, font, 1, (255, 0, 0), 2)
 
-            height, width, _ = frame.shape
+            height, width, _ = frame_data.shape
 
-            # 세로 선 그리기
-            line_color = (0, 255, 0)  # 초록색 (BGR 순서)
-            line_thickness = 2  # 선 두께
-            start_point = (math.trunc(width/2)+math.trunc(-angle), math.trunc(height/2)+100)  # 선의 시작점 (x, y)
-            end_point = (math.trunc(width/2)+math.trunc(-angle), math.trunc(height/2)-100)  # 선의 끝점 (x, y)
-            cv2.line(frame, start_point, end_point, line_color, line_thickness)
-            # 가로 선 그리기
-            line_color = (0, 255, 0)  # 초록색 (BGR 순서)
-            line_thickness = 2  # 선 두께
-            start_point = (math.trunc(width / 2), math.trunc(height / 2))  # 선의 시작점 (x, y)
-            end_point = (math.trunc(width / 2) + math.trunc(-angle), math.trunc(height / 2))  # 선의 끝점 (x, y)
-            cv2.line(frame, start_point, end_point, line_color, line_thickness)
-            # 세로 선 그리기
-            line_color = (0, 255, 255)  # 초록색 (BGR 순서)
-            line_thickness = 2  # 선 두께
-            start_point = (math.trunc(width / 2), math.trunc(height))  # 선의 시작점 (x, y)
-            end_point = (math.trunc(width / 2), 0)  # 선의 끝점 (x, y)
-            cv2.line(frame, start_point, end_point, line_color, line_thickness)
+            # Draw lines as you did in your initial code
 
-        # 화면에 출력
-        cv2.imshow('Steering Angle Detection', frame)
+        # Display the frame
+        cv2.imshow('Steering Angle Detection', frame_data)
 
-        # 'q' 키를 누를 때까지 비디오를 처리하며, 'q' 키를 누르면 루프 종료
+        # Exit the loop when 'q' key is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    # 비디오 캡처 객체 해제
-    cap.release()
+    # Release the RealSense pipeline
+    pipeline.stop()
 
-    # OpenCV 창 닫기
+    # Close OpenCV windows
     cv2.destroyAllWindows()
