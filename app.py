@@ -18,7 +18,7 @@ blink = "off"
 handle_relay = "false"
 battery_relay = "false"
 
-ser = serial.Serial("COM10", baudrate=9600)
+ser = serial.Serial("/dev/ttyUSB0", baudrate=9600)
 time.sleep(3)
 
 front_light = "true"
@@ -41,8 +41,8 @@ def detect_steering_angle(frame):
     gray = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
 
     # 캐니 엣지 검출
-    # edges = cv2.Canny(gray, 50, 150)
-    edges = cv2.Canny(gray, 400, 400)
+    edges = cv2.Canny(gray, 50, 150)
+    # edges = cv2.Canny(gray, 400, 400)
 
     # 허프 변환을 사용하여 선을 검출합니다.
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 100, minLineLength=100, maxLineGap=50)
@@ -130,6 +130,10 @@ while True:
         # 'q' 키를 누를 때까지 비디오를 처리하며, 'q' 키를 누르면 루프 종료
         moter1 = "150"
         moter2 = "150"
+        if angle > 45:
+            angle = 45
+        elif angle < -45:
+            angle = -45
         handle = f"{str(math.trunc(angle))}"
         command = f"#{str(moter1)} {str(moter2)} {str(handle)} {str(front_light)} {str(back_light)} {str(blink)} {str(handle_relay)} {str(battery_relay)}\n".encode('utf-8')
         ser.write(command)
