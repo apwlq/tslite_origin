@@ -25,10 +25,8 @@ time.sleep(3)
 front_light = "true"
 handle_relay = "true"
 
-
-video_path = "video.mkv"  # 분석할 비디오 파일 경로를 여기에 입력하세요.
-핸들오차범위 = -17
-평균 = 25
+핸들오차범위 = 0
+평균 = 5
 
 # 이전 5개의 각도 값을 저장할 리스트
 angle_history = []
@@ -36,7 +34,7 @@ angle_history = []
 def detect_steering_angle(frame):
     # 중앙에 가로로 긴 직사각형 영역(사각 박스)을 생성함
     height, width, _ = frame.shape
-    roi_width = int(width * 0.7)
+    roi_width = int(width)
     roi_height = int(height * 0.2)
     roi_x = int((width - roi_width) / 2)
     roi_y = int(height * 0.4)
@@ -53,12 +51,12 @@ def detect_steering_angle(frame):
     blurred = cv2.GaussianBlur(gray, (5,5), 1.4)
 
     # 캐니 엣지 검출
-    canny = cv2.Canny(blurred, 50, 150)
+    canny = cv2.Canny(blurred, 50, 350)
 
     # 비디오 출력
-    cv2.imshow('gray', gray)
-    cv2.imshow('gaussian', blurred)
-    cv2.imshow('canny', canny)
+    # cv2.imshow('gray', gray)
+    # cv2.imshow('gaussian', blurred)
+    # cv2.imshow('canny', canny)
 
     # 허프 변환을 사용하여 선을 검출
     lines = cv2.HoughLinesP(canny, 1, np.pi / 180, 100, minLineLength=100, maxLineGap=50)
@@ -95,7 +93,7 @@ def detect_steering_angle(frame):
     angle = np.arctan2(right_center[1] - left_center[1], right_center[0] - left_center[0])
 
     # 각도를 라디안에서 도로 변환
-    angle_degrees = np.degrees(angle * 4) - 핸들오차범위
+    angle_degrees = np.degrees(angle) - 핸들오차범위
 
     # 로봇의 한계인 45도를 넘지 않도록 제한
     if angle_degrees > 45:
@@ -103,7 +101,7 @@ def detect_steering_angle(frame):
     elif angle_degrees < -45:
         angle_degrees = -45
 
-    # 이전 각도를 저장하고 평균을 계산
+    # 이전 5개의 각도를 저장하고 평균을 계산
     angle_history.append(angle_degrees)
     if len(angle_history) > 평균:
         angle_history.pop(0)
@@ -145,34 +143,50 @@ if __name__ == "__main__":
             text = f"Steering Angle: {math.trunc(angle)} degrees"
             org = (50, 100)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(frame, text, org, font, 1, (255, 0, 0), 2)
+            cv2.putText(frame_data, text, org, font, 1, (255, 0, 0), 2)
 
-            height, width, _ = frame.shape
+            height, width, _ = frame_data.shape
 
+            # Draw lines as you did in your initial code
             # 세로 선 그리기
             line_color = (0, 255, 0)  # 초록색 (BGR 순서)
             line_thickness = 2  # 선 두께
-            start_point = (math.trunc(width / 2) + math.trunc(-angle), math.trunc(height / 2) + 100)  # 선의 시작점 (x, y)
-            end_point = (math.trunc(width / 2) + math.trunc(-angle), math.trunc(height / 2) - 100)  # 선의 끝점 (x, y)
-            cv2.line(frame, start_point, end_point, line_color, line_thickness)
+            start_point = (math.trunc(width/2)+math.trunc(-angle), math.trunc(height/2)+100)  # 선의 시작점 (x, y)
+            end_point = (math.trunc(width/2)+math.trunc(-angle), math.trunc(height/2)-100)  # 선의 끝점 (x, y)
+            cv2.line(frame_data, start_point, end_point, line_color, line_thickness)
             # 가로 선 그리기
             line_color = (0, 255, 0)  # 초록색 (BGR 순서)
             line_thickness = 2  # 선 두께
             start_point = (math.trunc(width / 2), math.trunc(height / 2))  # 선의 시작점 (x, y)
             end_point = (math.trunc(width / 2) + math.trunc(-angle), math.trunc(height / 2))  # 선의 끝점 (x, y)
-            cv2.line(frame, start_point, end_point, line_color, line_thickness)
+            cv2.line(frame_data, start_point, end_point, line_color, line_thickness)
             # 세로 선 그리기
             line_color = (0, 255, 255)  # 초록색 (BGR 순서)
             line_thickness = 2  # 선 두께
             start_point = (math.trunc(width / 2), math.trunc(height))  # 선의 시작점 (x, y)
             end_point = (math.trunc(width / 2), 0)  # 선의 끝점 (x, y)
-            cv2.line(frame, start_point, end_point, line_color, line_thickness)
-            # 화면에 출력
-            cv2.imshow('Steering Angle Detection', frame)
+            cv2.line(frame_data, start_point, end_point, line_color, line_thickness)
 
-            # 'q' 키를 누를 때까지 비디오를 처리하며, 'q' 키를 누르면 루프 종료
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            # Update motor and handle values
+            moter1 = "155"
+            moter2 = "155"
+            angle = angle
+            if angle > 45:
+                angle = 45
+            elif angle < -45:
+                angle = -45
+            handle = f"{str(math.trunc(angle))}"
+            command = f"#{str(moter1)} {str(moter2)} {str(handle)} {str(front_light)} {str(back_light)} {str(blink)} {str(handle_relay)} {str(battery_relay)}\n".encode('utf-8')
+            ser.write(command)
+            print(command)
+
+
+        # Display the frame
+        cv2.imshow('Steering Angle Detection', frame_data)
+
+        # Exit the loop when 'q' key is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
     # Release the RealSense pipeline
     pipeline.stop()
@@ -187,5 +201,7 @@ if __name__ == "__main__":
     command = f"#{str(moter1)} {str(moter2)} {str(handle)} {str(front_light)} {str(back_light)} {str(blink)} {str(handle_relay)} {str(battery_relay)}\n".encode('utf-8')
     ser.write(command)
     print(command)
-    time.sleep(1)
+    time.sleep(0.1)
+    r = ser.readline()
+    print(r)
     ser.close()
