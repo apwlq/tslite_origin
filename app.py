@@ -9,6 +9,11 @@ import serial
 import numpy as np
 import pyrealsense2 as rs
 
+# Load YOLO model for person detection
+net = cv2.dnn.readNet("yolov4.weights", "yolov4.cfg")
+layer_names = net.getLayerNames()
+output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
+
 # 기본 변수 설정
 moter1 = 0
 moter2 = 0
@@ -146,6 +151,42 @@ if __name__ == "__main__":
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(frame_data, text, org, font, 1, (255, 0, 0), 2)
 
+            # Perform person detection
+            blob = cv2.dnn.blobFromImage(frame_data, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
+            net.setInput(blob)
+            outs = net.forward(output_layers)
+
+            person_detected = False
+
+            # Extract class IDs, confidences, and bounding boxes
+            class_ids = []
+            confidences = []
+            boxes = []
+
+            for out in outs:
+                for detection in out:
+                    scores = detection[5:]
+                    class_id = np.argmax(scores)
+                    confidence = scores[class_id]
+                    if confidence > 0.5 and class_id == 0:  # Class ID 0 is for people
+                        # Person detected
+                        person_detected = True
+                        break
+
+            if person_detected:
+                print("Person detected - stopping the robot")
+                # Close the serial port
+                moter1 = "0"
+                moter2 = "0"
+                handle = "0"
+                back_light = "true"
+                command = f"#{str(moter1)} {str(moter2)} {str(handle)} {str(front_light)} {str(back_light)} {str(blink)} {str(handle_relay)} {str(battery_relay)}\n".encode(
+                    'utf-8')
+                ser.write(command)
+                print(command)
+                continue
+                # Add code to stop the robot or take any other desired action
+
             height, width, _ = frame_data.shape
 
             # Draw lines as you did in your initial code
@@ -171,6 +212,7 @@ if __name__ == "__main__":
             # Update motor and handle values
             moter1 = "35"
             moter2 = "35"
+            back_light = "false"
             angle = angle
             if angle > 0:
                 angle = 30
